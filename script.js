@@ -3,7 +3,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const gridCountInput = document.getElementById('grid-count');
 const gridSlider = document.getElementById('grid-slider');
-const applyButton = document.getElementById('apply-button');
+const downloadButton = document.getElementById('download-button');
 
 let image = null;
 let gridCount = 10;
@@ -64,7 +64,7 @@ function drawImageAndGrid() {
     }
 }
 
-applyButton.addEventListener('click', () => {
+downloadButton.addEventListener('click', () => {
     if (!image) return;
 
     // To get the pristine image data, first clear the canvas and redraw just the image.
@@ -113,4 +113,10 @@ applyButton.addEventListener('click', () => {
             }
         }
     }
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = 'processed-image.png';
+    link.href = canvas.toDataURL();
+    link.click();
 });
