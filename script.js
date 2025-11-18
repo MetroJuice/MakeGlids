@@ -1,122 +1,117 @@
 const imageLoader = document.getElementById('imageLoader');
+const gridSizeInput = document.getElementById('gridSize');
+const gridSlider = document.getElementById('gridSlider');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const gridCountInput = document.getElementById('grid-count');
-const gridSlider = document.getElementById('grid-slider');
-const downloadButton = document.getElementById('download-button');
+const downloadButton = document.getElementById('downloadButton');
 
-let image = null;
-let gridCount = 10;
+let image = new Image();
+let gridSize = 10;
 
-// Sync number input and slider
-gridCountInput.addEventListener('input', (e) => {
-    gridCount = parseInt(e.target.value, 10);
-    gridSlider.value = gridCount;
-    drawImageAndGrid();
-});
-
-gridSlider.addEventListener('input', (e) => {
-    gridCount = parseInt(e.target.value, 10);
-    gridCountInput.value = gridCount;
-    drawImageAndGrid();
-});
-
-// Load image
-imageLoader.addEventListener('change', (e) => {
+imageLoader.addEventListener('change', e => {
     const reader = new FileReader();
-    reader.onload = (event) => {
-        image = new Image();
+    reader.onload = event => {
         image.onload = () => {
             canvas.width = image.width;
             canvas.height = image.height;
-            drawImageAndGrid();
+            drawImageWithGrid();
         };
         image.src = event.target.result;
     };
     reader.readAsDataURL(e.target.files[0]);
 });
 
-function drawImageAndGrid() {
-    if (!image) return;
+gridSizeInput.addEventListener('input', e => {
+    gridSize = e.target.value;
+    gridSlider.value = gridSize;
+    drawImageWithGrid();
+});
 
-    // Clear canvas and draw the image
+gridSlider.addEventListener('input', e => {
+    gridSize = e.target.value;
+    gridSizeInput.value = gridSize;
+    drawImageWithGrid();
+});
+
+function drawImageWithGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0);
+    drawGrid();
+}
 
-    // Draw grid
+function drawGrid() {
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.lineWidth = 1;
-    const cellSizeX = canvas.width / gridCount;
-    const cellSizeY = canvas.height / gridCount;
 
-    for (let i = 1; i < gridCount; i++) {
-        // Vertical lines
+    for (let x = 0; x < canvas.width; x += image.width / gridSize) {
         ctx.beginPath();
-        ctx.moveTo(i * cellSizeX, 0);
-        ctx.lineTo(i * cellSizeX, canvas.height);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
         ctx.stroke();
+    }
 
-        // Horizontal lines
+    for (let y = 0; y < canvas.height; y += image.height / gridSize) {
         ctx.beginPath();
-        ctx.moveTo(0, i * cellSizeY);
-        ctx.lineTo(canvas.width, i * cellSizeY);
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
         ctx.stroke();
     }
 }
 
 downloadButton.addEventListener('click', () => {
-    if (!image) return;
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = image.width;
+    tempCanvas.height = image.height;
+    tempCtx.drawImage(image, 0, 0);
 
-    // To get the pristine image data, first clear the canvas and redraw just the image.
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
 
-    // Get the entire image data *before* we start modifying the canvas
-    const originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const originalData = originalImageData.data;
+    const cellWidth = image.width / gridSize;
+    const cellHeight = image.height / gridSize;
 
-    const cellSizeX = canvas.width / gridCount;
-    const cellSizeY = canvas.height / gridCount;
+    for (let gy = 0; gy < gridSize; gy++) {
+        for (let gx = 0; gx < gridSize; gx++) {
+            const startX = Math.floor(gx * cellWidth);
+            const startY = Math.floor(gy * cellHeight);
+            const endX = Math.floor((gx + 1) * cellWidth);
+            const endY = Math.floor((gy + 1) * cellHeight);
 
-    for (let y = 0; y < gridCount; y++) {
-        for (let x = 0; x < gridCount; x++) {
-            const startX = Math.floor(x * cellSizeX);
-            const startY = Math.floor(y * cellSizeY);
-            const endX = Math.floor((x + 1) * cellSizeX);
-            const endY = Math.floor((y + 1) * cellSizeY);
+            let red = 0, green = 0, blue = 0, count = 0;
 
-            let r = 0, g = 0, b = 0;
-            let pixelCount = 0;
-
-            // Iterate over the pixels within the cell in the *original* image data
-            for (let pixelY = startY; pixelY < endY; pixelY++) {
-                for (let pixelX = startX; pixelX < endX; pixelX++) {
-                     // Check boundary conditions
-                    if (pixelX >= 0 && pixelX < canvas.width && pixelY >= 0 && pixelY < canvas.height) {
-                        const index = (pixelY * canvas.width + pixelX) * 4;
-                        r += originalData[index];
-                        g += originalData[index + 1];
-                        b += originalData[index + 2];
-                        pixelCount++;
-                    }
+            for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    const index = (y * image.width + x) * 4;
+                    if (data[index + 3] === 0) continue; // Skip transparent pixels
+                    red += data[index];
+                    green += data[index + 1];
+                    blue += data[index + 2];
+                    count++;
                 }
             }
 
-            if (pixelCount > 0) {
-                const avgR = r / pixelCount;
-                const avgG = g / pixelCount;
-                const avgB = b / pixelCount;
+            if (count === 0) continue;
 
-                // Now, modify the canvas by drawing the rectangle
-                ctx.fillStyle = `rgb(${avgR}, ${avgG}, ${avgB})`;
-                ctx.fillRect(startX, startY, endX - startX, endY - startY);
+            const avgRed = red / count;
+            const avgGreen = green / count;
+            const avgBlue = blue / count;
+
+            for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    const index = (y * image.width + x) * 4;
+                     if (data[index + 3] === 0) continue;
+                    data[index] = avgRed;
+                    data[index + 1] = avgGreen;
+                    data[index + 2] = avgBlue;
+                }
             }
         }
     }
 
-    // Trigger download
+    tempCtx.putImageData(imageData, 0, 0);
     const link = document.createElement('a');
     link.download = 'processed-image.png';
-    link.href = canvas.toDataURL();
+    link.href = tempCanvas.toDataURL();
     link.click();
 });
