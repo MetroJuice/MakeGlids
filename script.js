@@ -88,8 +88,36 @@ downloadButton.addEventListener('click', () => {
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
 
-    // Draw the full-size image with the grid
-    drawImageWithGrid(tempCanvas, tempCtx, image, gridSize);
+    // Set canvas dimensions to the original image size
+    tempCanvas.width = image.width;
+    tempCanvas.height = image.height;
+
+    // Draw the full-size image
+    tempCtx.drawImage(image, 0, 0, image.width, image.height);
+
+    // Draw the grid
+    tempCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+    // Scale line width based on image size for better visibility
+    tempCtx.lineWidth = Math.max(1, Math.round(image.width / 500));
+
+    const cellWidth = image.width / gridSize;
+    const cellHeight = image.height / gridSize;
+
+    for (let i = 1; i < gridSize; i++) {
+        const x = i * cellWidth;
+        tempCtx.beginPath();
+        tempCtx.moveTo(x, 0);
+        tempCtx.lineTo(x, image.height);
+        tempCtx.stroke();
+    }
+
+    for (let i = 1; i < gridSize; i++) {
+        const y = i * cellHeight;
+        tempCtx.beginPath();
+        tempCtx.moveTo(0, y);
+        tempCtx.lineTo(image.width, y);
+        tempCtx.stroke();
+    }
 
     // Trigger the download
     const link = document.createElement('a');
